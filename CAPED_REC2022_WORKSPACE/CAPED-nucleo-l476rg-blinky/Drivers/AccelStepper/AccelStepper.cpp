@@ -363,7 +363,7 @@ void AccelStepper::setOutputPins(uint8_t mask)
 	numpins = 3;
     uint8_t i;
     for (i = 0; i < numpins; i++)
-	digitalWrite(_pin[i], (mask & (1 << i)) ? (HIGH ^ _pinInverted[i]) : (LOW ^ _pinInverted[i]));
+	HAL_I2C_Master_Transmit(_pin[i], (mask & (1 << i)) ? (HIGH ^ _pinInverted[i]) : (LOW ^ _pinInverted[i]));
 }
 
 // 0 pin step function (ie for functional usage)
@@ -548,7 +548,7 @@ void    AccelStepper::disableOutputs()
     if (_enablePin != 0xff)
     {
         pinMode(_enablePin, OUTPUT);
-        digitalWrite(_enablePin, LOW ^ _enableInverted);
+        HAL_I2C_Master_Transmit(_enablePin, LOW ^ _enableInverted);
     }
 }
 
@@ -572,7 +572,7 @@ void    AccelStepper::enableOutputs()
     if (_enablePin != 0xff)
     {
         pinMode(_enablePin, OUTPUT);
-        digitalWrite(_enablePin, HIGH ^ _enableInverted);
+        HAL_I2C_Master_Transmit(_enablePin, HIGH ^ _enableInverted);
     }
 }
 
@@ -589,7 +589,7 @@ void AccelStepper::setEnablePin(uint8_t enablePin)
     if (_enablePin != 0xff)
     {
         pinMode(_enablePin, OUTPUT);
-        digitalWrite(_enablePin, HIGH ^ _enableInverted);
+        HAL_I2C_Master_Transmit(_enablePin, HIGH ^ _enableInverted);
     }
 }
 
