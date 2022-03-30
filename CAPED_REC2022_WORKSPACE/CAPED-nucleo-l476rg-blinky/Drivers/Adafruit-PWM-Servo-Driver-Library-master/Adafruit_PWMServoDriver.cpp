@@ -36,7 +36,7 @@
  * TwoWire interface
  */
 Adafruit_PWMServoDriver::Adafruit_PWMServoDriver()
-    : _i2caddr(PCA9685_I2C_ADDRESS), _i2c(I2C_HandleTypeDef) {}
+    : _i2caddr(PCA9685_I2C_ADDRESS), _i2c(&I2C_HandleTypeDef) {}
 
 /*!
  *  @brief  Instantiates a new PCA9685 PWM driver chip with the I2C address on a
@@ -44,7 +44,7 @@ Adafruit_PWMServoDriver::Adafruit_PWMServoDriver()
  *  @param  addr The 7-bit I2C address to locate this chip, default is 0x40
  */
 Adafruit_PWMServoDriver::Adafruit_PWMServoDriver(const uint8_t addr)
-    : _i2caddr(addr), _i2c(I2C_HandleTypeDef) {}
+    : _i2caddr(addr), _i2c(&I2C_HandleTypeDef) {}
 
 /*!
  *  @brief  Instantiates a new PCA9685 PWM driver chip with the I2C address on a
@@ -54,8 +54,8 @@ Adafruit_PWMServoDriver::Adafruit_PWMServoDriver(const uint8_t addr)
  *  with
  */
 Adafruit_PWMServoDriver::Adafruit_PWMServoDriver(const uint8_t addr,
-                                                 I2C_HandleTypeDef i2c)
-    : _i2caddr(addr), _i2c(i2c) {}
+                                                 I2C_HandleTypeDef &i2c)
+    : _i2caddr(addr), _i2c(&i2c) {}
 
 /*!
  *  @brief  Setups the I2C interface and hardware
@@ -207,8 +207,16 @@ uint8_t Adafruit_PWMServoDriver::readPrescale(void) {
  *  @return requested PWM output value
  */
 uint8_t Adafruit_PWMServoDriver::getPWM(uint8_t num) {
-  _i2c->requestFrom((int)_i2caddr, PCA9685_LED0_ON_L + 4 * num, (int)4);
+  uint8_t temp;
+  uint16_t size = PCA9685_LED0_ON_L + 4 * num; // If I do this, what variable type should it be? I currently have it as a 16 bit since the i2c.h has it as such. - CHRIS
+  HAL_I2C_Master_Receive(_i2c, _i2caddr, &temp, size, HAL_MAX_DELAY);
+  return temp;
+
+  /*
+  _i2c->requestFrom((int)_i2caddr, PCA9685_LED0_ON_L + 4 * num, (int)4); // The second parameter is the size, but I do not know what the third parameter is. It is supposed to be a boolean, but is given as an int. - CHRIS
   return _i2c->read();
+   *
+   */
 }
 
 /*!
@@ -227,6 +235,22 @@ void Adafruit_PWMServoDriver::setPWM(uint8_t num, uint16_t on, uint16_t off) {
   Serial.println(off);
 #endif
 
+  uint8_t buf[5];
+
+  buf[0] = PCA9685_LED0_ON_L + 4 * num;
+  buf[1] = on;
+  buf[2] = on >> 8;
+  buf[3] = off;
+  buf[4] = off >> 8;
+
+
+  uint8_t *temp;
+  for(int i = 0; i < sizeof(buf); i++){
+  *temp = buf[i];
+  HAL_I2C_Master_Transmit(_i2c, _i2caddr, temp, 1, HAL_MAX_DELAY);
+  }
+
+  /*
   _i2c->beginTransmission(_i2caddr);
   _i2c->write(PCA9685_LED0_ON_L + 4 * num);
   _i2c->write(on);
@@ -234,7 +258,8 @@ void Adafruit_PWMServoDriver::setPWM(uint8_t num, uint16_t on, uint16_t off) {
   _i2c->write(off);
   _i2c->write(off >> 8);
   _i2c->endTransmission();
-  //HAL_I2C_Master_Transmit();
+   *
+   */
 }
 
 /*!
@@ -343,19 +368,53 @@ void Adafruit_PWMServoDriver::setOscillatorFrequency(uint32_t freq) {
 
 /******************* Low level I2C interface */
 uint8_t Adafruit_PWMServoDriver::read8(uint8_t addr) {
-  _i2c->beginTransmission(_i2caddr);
+
+  uint8_t buf = addr;
+  uint8_t *temp = buf; //this is probably redundant - CHRIS
+
+  HAL_I2C_Master_Transmit(_i2c, _i2caddr, temp, 1, HAL_MAX_DELAY);
+
+  /*
+  _i2c->beginTransmission();
   _i2c->write(addr);
   _i2c->endTransmission();
+*/
 
+  uint8_t temp;
+  HAL_I2C_Master_Receive(_i2c, _i2caddr, &temp, 1, HAL_MAX_DELAY);
+  return temp;
+  // I have the bytes received as 1 since the "requestFrom" also only has one byte (aka the (uint8_t)1).
+  // I am not sure on what to do for the "pointer to buffer," so I just have it set to temp/the address,
+  // but I do not know if this is correct because the Digi-Key video example just sets it as 0x00/zero.
+  // I also do not know if I should assign this to a variable. In this case, it might not matter because
+  // I do not see the status being checked like in the video. - CHRIS
+
+  /*
   _i2c->requestFrom((uint8_t)_i2caddr, (uint8_t)1);
   return _i2c->read();
+   *
+   */
   //HAL_I2C_Master_Receive();
 }
 
 void Adafruit_PWMServoDriver::write8(uint8_t addr, uint8_t d) {
+
+  uint8_t buf[2];
+
+  buf[0] = addr;
+  buf[1] = d;
+
+  uint8_t *temp;
+  for(int i = 0; i < sizeof(buf); i++){
+  *temp = buf[i];
+  HAL_I2C_Master_Transmit(_i2c, _i2caddr, temp, 1, HAL_MAX_DELAY);
+  }
+
+/*
   _i2c->beginTransmission(_i2caddr);
   _i2c->write(addr);
   _i2c->write(d);
   _i2c->endTransmission();
-  //HAL_I2C_Master_Transmit();
+   *
+   */
 }
