@@ -187,7 +187,7 @@ boolean AccelStepper::run()
     return _speed != 0.0 || distanceToGo() != 0;
 }
 
-AccelStepper::AccelStepper(uint8_t interface, uint8_t pin1, uint8_t pin2, uint8_t pin3, uint8_t pin4, bool enable)
+AccelStepper::AccelStepper(uint8_t interface, GPIO_TypeDef* GPIO1, uint16_t pin1, GPIO_TypeDef* GPIO2, uint16_t pin2, GPIO_TypeDef* GPIO3, uint16_t pin3, GPIO_TypeDef* GPIO4, uint16_t pin4, bool enable)
 {
     _interface = interface;
     _currentPos = 0;
@@ -200,6 +200,10 @@ AccelStepper::AccelStepper(uint8_t interface, uint8_t pin1, uint8_t pin2, uint8_
     _minPulseWidth = 1;
     _enablePin = 0xff;
     _lastStepTime = 0;
+    _GPIO[0] = GPIO1;
+    _GPIO[1] = GPIO2;
+    _GPIO[2] = GPIO3;
+    _GPIO[3] = GPIO4;
     _pin[0] = pin1;
     _pin[1] = pin2;
     _pin[2] = pin3;
@@ -363,7 +367,7 @@ void AccelStepper::setOutputPins(uint8_t mask)
 	numpins = 3;
     uint8_t i;
     for (i = 0; i < numpins; i++)
-	digitalWrite(_pin[i], (mask & (1 << i)) ? (HIGH ^ _pinInverted[i]) : (LOW ^ _pinInverted[i]));
+	HAL_GPIO_WritePin(_GPIO[i], _pin[i], (mask & (1 << i)) ? (HIGH ^ _pinInverted[i]) : (LOW ^ _pinInverted[i]));
 }
 
 // 0 pin step function (ie for functional usage)
@@ -548,7 +552,7 @@ void    AccelStepper::disableOutputs()
     if (_enablePin != 0xff)
     {
         pinMode(_enablePin, OUTPUT);
-        digitalWrite(_enablePin, LOW ^ _enableInverted);
+        HAL_GPIO_WritePin(_enablePin, LOW ^ _enableInverted);
     }
 }
 
@@ -572,7 +576,7 @@ void    AccelStepper::enableOutputs()
     if (_enablePin != 0xff)
     {
         pinMode(_enablePin, OUTPUT);
-        digitalWrite(_enablePin, HIGH ^ _enableInverted);
+        HAL_GPIO_WritePin(_enablePin, HIGH ^ _enableInverted);
     }
 }
 
@@ -589,7 +593,7 @@ void AccelStepper::setEnablePin(uint8_t enablePin)
     if (_enablePin != 0xff)
     {
         pinMode(_enablePin, OUTPUT);
-        digitalWrite(_enablePin, HIGH ^ _enableInverted);
+        HAL_GPIO_WritePin(_enablePin, HIGH ^ _enableInverted);
     }
 }
 

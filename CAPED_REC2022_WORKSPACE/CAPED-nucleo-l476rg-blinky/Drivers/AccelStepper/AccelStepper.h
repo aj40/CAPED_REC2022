@@ -350,7 +350,7 @@ public:
     /// to pin 5.
     /// \param[in] enable If this is true (the default), enableOutputs() will be called to enable
     /// the output pins at construction time.
-    AccelStepper(uint8_t interface = AccelStepper::FULL4WIRE, uint8_t pin1 = 2, uint8_t pin2 = 3, uint8_t pin3 = 4, uint8_t pin4 = 5, bool enable = true);
+    AccelStepper(uint8_t interface = AccelStepper::FULL4WIRE, GPIO_TypeDef* GPIO1, uint16_t pin1 = 2, GPIO_TypeDef* GPIO2, uint16_t pin2 = 3, GPIO_TypeDef* GPIO3, uint16_t pin3 = 4, uint16_t pin4 = 5, bool enable = true);
 
     /// Alternate Constructor which will call your own functions for forward and backward steps. 
     /// You can have multiple simultaneous steppers, all moving
@@ -602,10 +602,13 @@ private:
     /// Number of pins on the stepper motor. Permits 2 or 4. 2 pins is a
     /// bipolar, and 4 pins is a unipolar.
     uint8_t        _interface;          // 0, 1, 2, 4, 8, See MotorInterfaceType
+	
+    //pin label PA-H
+    GPIO_TypeDef   _GPIO[4]; 
 
     /// Arduino pin number assignments for the 2 or 4 pins required to interface to the
     /// stepper motor or driver
-    uint8_t        _pin[4];
+    uint16_t        _pin[4];
 
     /// Whether the _pins is inverted or not
     uint8_t        _pinInverted[4];
