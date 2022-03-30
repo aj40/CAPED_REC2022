@@ -253,12 +253,6 @@
 #define AccelStepper_h
 
 #include <stdlib.h>
-#if ARDUINO >= 100
-#include <Arduino.h>
-#else
-#include <WProgram.h>
-#include <wiring.h>
-#endif
 
 // These defs cause trouble on some versions of Arduino
 #undef round
@@ -308,6 +302,7 @@
 /// Gregor Christandl reports that with an Arduino Due and a simple test program, 
 /// he measured 43163 steps per second using runSpeed(), 
 /// and 16214 steps per second using run();
+
 class AccelStepper
 {
 public:
