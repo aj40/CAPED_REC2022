@@ -54,7 +54,7 @@
     @returns True if device is set up, false on any failure
 */
 /**************************************************************************/
-boolean Adafruit_VL53L0X::begin(uint8_t i2c_addr, boolean debug, TwoWire *i2c,
+boolean Adafruit_VL53L0X::begin(uint8_t i2c_addr, boolean debug, TI2C_HandleTypeDefwoWire *i2c,
                                 VL53L0X_Sense_config_t vl_config) {
   uint32_t refSpadCount;
   uint8_t isApertureSpads;
@@ -66,8 +66,6 @@ boolean Adafruit_VL53L0X::begin(uint8_t i2c_addr, boolean debug, TwoWire *i2c,
   pMyDevice->comms_type = 1;
   pMyDevice->comms_speed_khz = 400;
   pMyDevice->i2c = i2c;
-
-  pMyDevice->i2c->begin(); // VL53L0X_i2c_init();
 
   // unclear if this is even needed:
   if (VL53L0X_IMPLEMENTATION_VER_MAJOR != VERSION_REQUIRED_MAJOR ||
