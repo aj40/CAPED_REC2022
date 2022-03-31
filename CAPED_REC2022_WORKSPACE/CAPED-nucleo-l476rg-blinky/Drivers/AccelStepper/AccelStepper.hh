@@ -350,7 +350,7 @@ public:
     /// to pin 5.
     /// \param[in] enable If this is true (the default), enableOutputs() will be called to enable
     /// the output pins at construction time.
-    AccelStepper(uint8_t interface = AccelStepper::FULL4WIRE, GPIO_TypeDef* GPIO1, uint16_t pin1 = 2, GPIO_TypeDef* GPIO2, uint16_t pin2 = 3, GPIO_TypeDef* GPIO3, uint16_t pin3 = 4, uint16_t pin4 = 5, bool enable = true);
+    AccelStepper(uint8_t interface = AccelStepper::FULL4WIRE, GPIO_TypeDef GPIO1 = *GPIOA, uint16_t pin1 = 2, GPIO_TypeDef GPIO2 = *GPIOA, uint16_t pin2 = 3, GPIO_TypeDef GPIO3 = *GPIOA , uint16_t pin3 = 4, GPIO_TypeDef GPIO4 = *GPIOA, uint16_t pin4 = 5, bool enable = true);
 
     /// Alternate Constructor which will call your own functions for forward and backward steps. 
     /// You can have multiple simultaneous steppers, all moving
@@ -381,13 +381,13 @@ public:
     /// preferably in your main loop. Note that each call to run() will make at most one step, and then only when a step is due,
     /// based on the current speed and the time since the last step.
     /// \return true if the motor is still running to the target position.
-    boolean run();
+    bool run();
 
     /// Poll the motor and step it if a step is due, implementing a constant
     /// speed as set by the most recent call to setSpeed(). You must call this as
     /// frequently as possible, but at least once per step interval,
     /// \return true if the motor was stepped.
-    boolean runSpeed();
+    bool runSpeed();
 
     /// Sets the maximum permitted speed. The run() function will accelerate
     /// up to the speed set by this function.
@@ -454,7 +454,7 @@ public:
     /// Runs at the currently selected speed until the target position is reached
     /// Does not implement accelerations.
     /// \return true if it stepped
-    boolean runSpeedToPosition();
+    bool runSpeedToPosition();
 
     /// Moves the motor (with acceleration/deceleration)
     /// to the new target position and blocks until it is at
@@ -596,7 +596,7 @@ protected:
 
     /// Current direction motor is spinning in
     /// Protected because some peoples subclasses need it to be so
-    boolean _direction; // 1 == CW
+    bool _direction; // 1 == CW
     
 private:
     /// Number of pins on the stepper motor. Permits 2 or 4. 2 pins is a
