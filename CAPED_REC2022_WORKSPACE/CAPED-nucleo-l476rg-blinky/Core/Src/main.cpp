@@ -19,6 +19,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
+#include "AccelStepper.hh"
+#include "Adafruit_PWMServoDriver.h"
+#include "../../Drivers/Adafruit_VL53L0X-master/src/Adafruit_VL53L0X.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -41,7 +44,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
-I2C_HandleTypeDef hi2c2;
 I2C_HandleTypeDef hi2c3;
 
 UART_HandleTypeDef huart2;
@@ -74,20 +76,6 @@ const osThreadAttr_t ActuationDrop_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-/* Definitions for WaitForQueue */
-osThreadId_t WaitForQueueHandle;
-const osThreadAttr_t WaitForQueue_attributes = {
-  .name = "WaitForQueue",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
-};
-/* Definitions for DropTransition */
-osThreadId_t DropTransitionHandle;
-const osThreadAttr_t DropTransition_attributes = {
-  .name = "DropTransition",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
-};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -97,14 +85,11 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_I2C2_Init(void);
 static void MX_I2C3_Init(void);
 void StartDefaultTask(void *argument);
 void StartTowerTransition(void *argument);
 void StartQueueToTop(void *argument);
 void StartActuationDrop(void *argument);
-void StartWaitForQueue(void *argument);
-void StartDropTransition(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -112,6 +97,9 @@ void StartDropTransition(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+static bool drop1Complete = false;
+
 void unlockCabinServo(int i){
 	if(i == 1){
 		//TODO move mapped servo for lift tower
@@ -137,6 +125,7 @@ void lockCabinServo(int i){
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -161,14 +150,13 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_I2C1_Init();
-  MX_I2C2_Init();
   MX_I2C3_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
 
   /* Init scheduler */
-  osKernelInitialize();
+  //osKernelInitialize();
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -188,22 +176,16 @@ int main(void)
 
   /* Create the thread(s) */
   /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  //defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* creation of TowerTransition */
-  TowerTransitionHandle = osThreadNew(StartTowerTransition, NULL, &TowerTransition_attributes);
+  //TowerTransitionHandle = osThreadNew(StartTowerTransition, NULL, &TowerTransition_attributes);
 
   /* creation of QueueToTop */
-  QueueToTopHandle = osThreadNew(StartQueueToTop, NULL, &QueueToTop_attributes);
+  //QueueToTopHandle = osThreadNew(StartQueueToTop, NULL, &QueueToTop_attributes);
 
   /* creation of ActuationDrop */
-  ActuationDropHandle = osThreadNew(StartActuationDrop, NULL, &ActuationDrop_attributes);
-
-  /* creation of WaitForQueue */
-  WaitForQueueHandle = osThreadNew(StartWaitForQueue, NULL, &WaitForQueue_attributes);
-
-  /* creation of DropTransition */
-  DropTransitionHandle = osThreadNew(StartDropTransition, NULL, &DropTransition_attributes);
+  //ActuationDropHandle = osThreadNew(StartActuationDrop, NULL, &ActuationDrop_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -214,11 +196,45 @@ int main(void)
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
-  osKernelStart();
+  //osKernelStart();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  // called this way, it uses the default address 0x40
+  //Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+  // you can also call it with a different address you want
+  //Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
+  // you can also call it with a different address and I2C interface
+  Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, &hi2c3);
+
+  // Depending on your servo make, the pulse width min and max may vary, you
+  // want these to be as small/large as possible without hitting the hard stop
+  // for max range. You'll have to tweak them as necessary to match the servos you
+  // have!
+  #define SERVOMIN  150 // This is the 'minimum' pulse length count (out of 4096)
+  #define SERVOMAX  600 // This is the 'maximum' pulse length count (out of 4096)
+  #define USMIN  600 // This is the rounded 'minimum' microsecond length based on the minimum pulse of 150
+  #define USMAX  2400 // This is the rounded 'maximum' microsecond length based on the maximum pulse of 600
+  #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
+
+  // our servo # counter
+  uint8_t servonum = 0;
+
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
+
+  HAL_Delay(10);
+
+  for (uint16_t pulselen = SERVOMIN; pulselen < SERVOMAX; pulselen++) {
+      pwm.setPWM(servonum, 0, pulselen);
+  }
+
+  HAL_Delay(500);
+  for (uint16_t pulselen = SERVOMAX; pulselen > SERVOMIN; pulselen--) {
+      pwm.setPWM(servonum, 0, pulselen);
+  }
+
   while (1)
   {
     /* USER CODE END WHILE */
@@ -226,6 +242,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
+
 }
 
 /**
@@ -318,52 +335,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-
-}
-
-/**
-  * @brief I2C2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C2_Init(void)
-{
-
-  /* USER CODE BEGIN I2C2_Init 0 */
-
-  /* USER CODE END I2C2_Init 0 */
-
-  /* USER CODE BEGIN I2C2_Init 1 */
-
-  /* USER CODE END I2C2_Init 1 */
-  hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x10909CEC;
-  hi2c2.Init.OwnAddress1 = 0;
-  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c2.Init.OwnAddress2 = 0;
-  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
-  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure Analogue filter
-  */
-  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure Digital filter
-  */
-  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C2_Init 2 */
-
-  /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -488,6 +459,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : ACC_Z_Pin */
+  GPIO_InitStruct.Pin = ACC_Z_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(ACC_Z_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LD2_Pin Step2_dir_Pin */
   GPIO_InitStruct.Pin = LD2_Pin|Step2_dir_Pin;
@@ -614,13 +591,13 @@ void StartQueueToTop(void *argument)
      */
 
 	 //if something in queue
-	 if(HAL_GPIO_ReadPin(GPIOC, IR1)){
+	 if(HAL_GPIO_ReadPin(GPIOA, IR1_Pin)){
 
 		 //wait to load
 		 osDelay(10000);
 
 		 //if cabin at the bottom
-		 if(HAL_GPIO_ReadPin(GPIOC, IR2) && HAL_GPIO_ReadPin(GPIOC, IR3)){
+		 if(HAL_GPIO_ReadPin(GPIOA, IR2_Pin) && HAL_GPIO_ReadPin(GPIOC, IR3_Pin)){
 			 //TODO drive servos
 
 			 //TODO set brakes based on TOF
@@ -630,7 +607,7 @@ void StartQueueToTop(void *argument)
 
 			 // Wait a 1/2 second for the servo to unlock, then drive the stepper motor (STEPPER2_EN)
 			 osDelay(500);
-			 HAL_GPIO_WritePin(GPIOB, Step2_EN, GPIO_PIN_SET);
+			 HAL_GPIO_WritePin(GPIOC, Step2_en_Pin, GPIO_PIN_SET);
 		 }
 
 	 }
@@ -653,82 +630,18 @@ void StartActuationDrop(void *argument)
   for(;;)
   {
 	 //if drop complete, and at the top, amd wait clear
-    if(drop1Complete && HAL_GPIO_ReadPin(GPIOC, Limit4) && HAL_GPIO_ReadPin(GPIOC, IR11)){
+    if(drop1Complete && HAL_GPIO_ReadPin(GPIOB, Limit4_Pin) && HAL_GPIO_ReadPin(GPIOB, IR11_Pin)){
     	//TODO actuation servo
 
     	//if actuated and still wait clear
-    	if(HAL_GPIO_ReadPin(GPIOC, Limit6) && HAL_GPIO_ReadPin(GPIOC, IR11)){
+    	if(HAL_GPIO_ReadPin(GPIOB, Limit6_Pin) && HAL_GPIO_ReadPin(GPIOB, IR11_Pin)){
     		//drop
-    		HAL_GPIO_WritePin(GPIOB, Step1_EN, GPIO_PIN_SET);
+    		HAL_GPIO_WritePin(GPIOB, Step1_en_Pin, GPIO_PIN_SET);
     		drop1Complete = true;
     	}
     }
   }
   /* USER CODE END StartActuationDrop */
-}
-
-/* USER CODE BEGIN Header_StartWaitForQueue */
-/**
-* @brief Function implementing the WaitForQueue thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartWaitForQueue */
-void StartWaitForQueue(void *argument)
-{
-  /* USER CODE BEGIN StartWaitForQueue */
-  /* Infinite loop */
-  for(;;)
-  {
-	  /* For the Wait For Queue Task, we need to check:
-	   *  if the the pre-brake IR sensor is ON (IR8 - PB9)
-	   * Then, we need to:
-	   *  open the brakes ( TODO: Set Brake Servos )
-	   */
-	  if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8)){
-		  // Unlock Servo that brakes/clamps onto the ride vehicle
-		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2,GPIO_PIN_SET);
-
-	//TODO: I2C communication to mapped servo.
-
-	  }
-	  osDelay(1);
-  }
-  /* USER CODE END StartWaitForQueue */
-}
-
-/* USER CODE BEGIN Header_StartDropTransition */
-/**
-* @brief Function implementing the DropTransition thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartDropTransition */
-void StartDropTransition(void *argument)
-{
-  /* USER CODE BEGIN StartDropTransition */
-  /* Infinite loop */
-  for(;;)
-  {
-	  /* For the Drop Transition Task, we need to check:
-	   *  if the two bottom limit switches are ON (Limit5 - PB13, Limit6 - PB12)
-	   *  if the IR sensor on the track is ON (IR7 - PB2)
-	   *  if the actuation limit switch is ON (Limit4 - PB14)
-	   * Then, we need to:
-	   *  Unlock the servo motor to drop the ride vehicle to the Drop to Queue ()
-	   * NOTES: when I say ON, I mean in their active position
-	   */
-	  if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_13) && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_12) && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_14) && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2)){
-		  // Unlock Servo that holds in the ride vehicle
-		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2,GPIO_PIN_SET);
-		  // We only close the Servo once we complete the next step
-
-	//TODO: I2C communication to mapped servo.
-
-	  }
-	  osDelay(1);
-  }
-  /* USER CODE END StartDropTransition */
 }
 
 /**
@@ -742,7 +655,7 @@ void StartDropTransition(void *argument)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
-
+   //test
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM6) {
     HAL_IncTick();
