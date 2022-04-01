@@ -208,13 +208,13 @@ uint8_t Adafruit_PWMServoDriver::readPrescale(void) {
  */
 uint8_t Adafruit_PWMServoDriver::getPWM(uint8_t num) {
   uint8_t temp;
-  uint16_t size = PCA9685_LED0_ON_L + 4 * num; // If I do this, what variable type should it be? I currently have it as a 16 bit since the i2c.h has it as such. - CHRIS
+  uint16_t size = PCA9685_LED0_ON_L + 4 * num;
   HAL_I2C_Master_Receive(_i2c, _i2caddr, &temp, size, HAL_MAX_DELAY);
   return temp;
 
   /*
-  _i2c->requestFrom((int)_i2caddr, PCA9685_LED0_ON_L + 4 * num, (int)4); // The second parameter is the size, but I do not know what the third parameter is. It is supposed to be a boolean, but is given as an int. - CHRIS
-  return _i2c->read();
+   * _i2c->requestFrom((int)_i2caddr, PCA9685_LED0_ON_L + 4 * num, (int)4);
+   * return _i2c->read();
    *
    */
 }

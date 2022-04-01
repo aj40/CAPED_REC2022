@@ -681,12 +681,12 @@ void StartWaitForQueue(void *argument)
   for(;;)
   {
 	  /* For the Wait For Queue Task, we need to check:
-	   *  if the the pre-brake IR sensor is ON (IR8 - PB9)
+	   *  if the the pre-brake IR sensor is turned ON (IR8 - PB9)
 	   * Then, we need to:
 	   *  open the brakes ( TODO: Set Brake Servos )
 	   */
 	  if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8)){
-		  // Unlock Servo that brakes/clamps onto the ride vehicle
+		  // Begins the drive tires that will slow the vehicle at the bottom of the ramp
 		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2,GPIO_PIN_SET);
 
 	//TODO: I2C communication to mapped servo.
@@ -720,7 +720,8 @@ void StartDropTransition(void *argument)
 	   */
 	  if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_13) && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_12) && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_14) && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2)){
 		  // Unlock Servo that holds in the ride vehicle
-		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2,GPIO_PIN_SET);
+		  unlockCabinServo(0);
+		  //HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2,GPIO_PIN_SET);
 		  // We only close the Servo once we complete the next step
 
 	//TODO: I2C communication to mapped servo.
