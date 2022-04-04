@@ -85,6 +85,13 @@ void setup() {
   while (! Serial) {
     delay(1);
   }
+
+  // Initialize the Sensor Pins
+  pinMode(DROPTOPIR1, INPUT)
+  pinMode(DROPTOPIR2, INPUT)
+  pinMode(DROPBOTTOMLIMIT1, INPUT)
+  pinMode(DROPBOTTOMLIMIT2, INPUT)
+  pinMode(DROPTOPLIMIT1, INPUT)
   
   Wire.begin(Z2);     // Join I2C Bus with ZONE2 Address
   // Register the appropriate events for receiving and requesting
