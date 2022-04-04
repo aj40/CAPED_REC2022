@@ -24,6 +24,20 @@
 #define STEP 9
 #define SLEEP 13  // An enable pin! Useful for holding position
 
+// Sensor Pins
+#define DROPTOPIR1 15
+#define DROPTOPIR2 16
+#define DROPBOTTOMLIMIT1 2
+#define DROPBOTTOMLIMIT2 3
+#define DROPTOPLIMIT1 4
+
+// Actuator Info
+#define BRIDGESERVOS 7 // Number on the driver board for the bridge servos
+#define LIFTSERVO 6 // Number on the driver board for the lift tower servos
+#define ACTUATESERVO 2 // Number on the driver board for the tilt actuator servo
+#define DROPLOCKSERVO 3 // Number on the driver board for the drop tower lock servo
+#define DRIVEPWM 4096 //Right now this is a MAX we should tune it to get the speed we want
+
 // ServoDriver Definitions:
 #define SERVOMIN  150 // This is the 'minimum' pulse length count (out of 4096)
 #define SERVOMAX  600 // This is the 'maximum' pulse length count (out of 4096)
@@ -44,16 +58,20 @@ float TOFmeasure = 0.0;
 float TOFBlank = 0.0; //------------------------UPDATE ME!
 
 //TOF Reading for Vehicle fully in Tower
-float TOFTower = 0.0; //------------------------UPDATE ME!
+float TOFDrop = 0.0; //------------------------UPDATE ME!
 
-//TOF Reading for Vehicle waiting in Queue
-float TOFQueue = 0.0; //------------------------UPDATE ME!
+//Calibration value for checking where a vehicle is (essentially accounts for small inaccuracies)
+float cal_range = 0.0; //------------------------UPDATE ME!
 
 // Booleans for task control
 boolean done = false;
 boolean z1 = false;
 boolean z3 = false;
 boolean jog = false;
+
+// Some booleans for one shotting
+boolean intower = true;
+boolean drivetires = true;
 
 
 // Driver Objects
@@ -114,15 +132,41 @@ void loop() {
   // Update the TOF reading each loop
   TOFmeasure = measure.RangeMilliMeter;
 
-  if(TOFmeasure <= TOFTower && TOFmeasure >= TOFQueue && digitalRead(BOTTOMIR1) && digitalRead(BOTTOMIR2) !rideStop && !jog && z1) {
-    // Code here to spin drive tires
+  if(TOFmeasure <= TOFTower  && digitalRead(DROPTOPIR1) && digitalRead(DROPTOPIR2) !rideStop && !jog && z1 && drivetires) {
+    // Spin Bridge Servos and lift tower servos
+    pwm.setPWM(BRIDGESERVOS, DRIVEPWM, 0);
+    pwm.setPWM(LIFTSERVO, DRIVEPWM, 0);
+
+    drivetires = false;
+
   }
 
-  
+  if(TOFmeasure <= TOFDrop+cal_range && TOFmeasure >= TOFTower-cal_range) {
+    // Reset previous state
+    drivetires = true;
+    // Disable drive tires
+    pwm.setPWM(BRIDGESERVOS, 0, 4096);
+    pwm.setPWM(LIFTSERVO, 0, 4096);
+    
+    // Lock tower and drop
+    pwm.setPWM(DROPLOCKSERVO, 4096, 0);
 
-  
+    // Drop Tower to bottom ---> We should probably measure the number of steps and do it that way instead
+    while (!digitalRead(BOTTOMLIMIT)) {
+      stepper.rotate(1);
+      steps++;
+      delay(10);
+  }
 
-  
+    // Raise Tower to top --> we know this number of steps based on the calibration
+    stepper.move(-steps*MICROSTEPS);
+
+    // Actuate the rotating mechanism
+    pwm.setPWM(ACTUATESERVO, 4096,0);
+
+    // Send that Z2 is complete
+    done = true;
+  }
 
 }
 
