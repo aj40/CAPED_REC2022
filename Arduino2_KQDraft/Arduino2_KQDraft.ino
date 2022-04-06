@@ -27,13 +27,15 @@
 // Sensor Pins
 #define DROPTOPIR1 15
 #define DROPTOPIR2 16
+#define DROPBOTTOMIR1 5
+#define DROPBOTTOMIR2 6
 #define DROPBOTTOMLIMIT1 2
 #define DROPBOTTOMLIMIT2 3
 #define DROPTOPLIMIT1 4
 
 // Actuator Info
 #define BRIDGESERVOS 7 // Number on the driver board for the bridge servos
-#define LIFTSERVO 6 // Number on the driver board for the lift tower servos
+#define PREQUEUESERVO 6 // Number on the driver board for the lift tower servos
 #define ACTUATESERVO 2 // Number on the driver board for the tilt actuator servo
 #define DROPLOCKSERVO 3 // Number on the driver board for the drop tower lock servo
 #define DRIVEPWM 4096 //Right now this is a MAX we should tune it to get the speed we want
@@ -89,6 +91,8 @@ void setup() {
   // Initialize the Sensor Pins
   pinMode(DROPTOPIR1, INPUT)
   pinMode(DROPTOPIR2, INPUT)
+  pinMode(DROPBOTTOMIR1, INPUT)
+  pinMode(DROPBOTTOMIR2, INPUT)
   pinMode(DROPBOTTOMLIMIT1, INPUT)
   pinMode(DROPBOTTOMLIMIT2, INPUT)
   pinMode(DROPTOPLIMIT1, INPUT)
@@ -139,7 +143,18 @@ void loop() {
   // Update the TOF reading each loop
   TOFmeasure = measure.RangeMilliMeter;
 
-  if(TOFmeasure <= TOFTower  && digitalRead(DROPTOPIR1) && digitalRead(DROPTOPIR2) !rideStop && !jog && z1 && drivetires) {
+  if(TOFmeasure <= TOFTower  && digitalRead(DROPTOPIR1) && digitalRead(DROPTOPIR2) && !rideStop && !jog && drivetires) {
+    // Request Info from Z1 to confirm cleared
+    Wire.requestFrom(Z1, 8, true)
+
+    // Break if Z1 disagrees
+    if(!z1) {
+      break;
+    }
+    
+    // Declare Zone 2 Active
+    done = false;
+    
     // Spin Bridge Servos and lift tower servos
     pwm.setPWM(BRIDGESERVOS, DRIVEPWM, 0);
     pwm.setPWM(LIFTSERVO, DRIVEPWM, 0);
@@ -171,8 +186,35 @@ void loop() {
     // Actuate the rotating mechanism
     pwm.setPWM(ACTUATESERVO, 4096,0);
 
+    // Drop to Bottom
+    stepper.move(steps*MICROSTEPS);
+
+  if(digitalRead(DROPBOTTOMIR1) && digitalRead(DROPBOTTOMIR2)) {
+    // Release the lock
+    pwm.setPWM(DROPLOCKSERVO,0,4096);
+
+    // Unactuate
+    pwm.setPWM(ACTUATESERVO, 0, 4096);
+
+    // Raise back to top window
+    while (!digitalRead(DROPTOPIR1) && !digitalRead(DROPTOPIR2)) {
+      stepper.rotate(1);
+      steps++;
+      delay(10);
+  }
+
+  // INSERT CODE TO DRIVE PREQUEUE TIRES BASED ON IF QUEUE IS OCCUPIED
+    
     // Send that Z2 is complete
     done = true;
+
+    // Publish Z2 as complete to Z1
+    Wire.beginTransmission(Z1);
+    Wire.write(done);
+    Wire.endTransmission();
+  }
+
+
   }
 
 }
