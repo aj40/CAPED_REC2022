@@ -8,7 +8,7 @@
 #include <Adafruit_PWMServoDriver.h>
 #include <Adafruit_VL53L0X.h>
 #include "BasicStepperDriver.h"
-#include "AlexHeader.h" // This will eventually have all the case defintitions and i2c definitions hopefully ServoDriver too
+#include "REC.h" // This will eventually have all the case defintitions and i2c definitions hopefully ServoDriver too
 
 
 
@@ -234,7 +234,7 @@ void receiveEvent(int howMany) {
                       break;
     case SET_Z3_T   : z3 = true;
                       break;
-    default         : Serial.print("Error! Invalid data received at Z1");
+    default         : Serial.print("Error! Invalid data received at Z2");
   }
 }
 void requestEvent(){
