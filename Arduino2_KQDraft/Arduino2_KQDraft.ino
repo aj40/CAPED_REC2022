@@ -7,22 +7,8 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <Adafruit_VL53L0X.h>
-#include "BasicStepperDriver.h"
 #include "REC.h" // This will eventually have all the case defintitions and i2c definitions hopefully ServoDriver too
 
-
-
-// Stepper Motor Definitions
-#define MOTOR_STEPS 200  // 200 steps per revolution--double check against stepper motors (1.8 degrees/step)
-#define RPM 20
-
-// Microstepping--We probably won't use this but it will be here just in case
-#define MICROSTEPS 1
-
-// Pins for stepper motor driver
-#define DIR 8
-#define STEP 9
-#define SLEEP 13  // An enable pin! Useful for holding position
 
 // Sensor Pins
 #define DROPTOPIR1 15
@@ -50,9 +36,6 @@
 // servo # counter
 uint8_t servonum = 0;
 
-// Stepper Motor locating. steps is the maximum range counted from by going from top to bottom
-uint16_t steps = 0;
-
 // Time of Flight Sensor Measurement
 float TOFmeasure = 0.0;
 
@@ -62,14 +45,12 @@ float TOFBlank = 0.0; //------------------------UPDATE ME!
 //TOF Reading for Vehicle fully in Tower
 float TOFDrop = 0.0; //------------------------UPDATE ME!
 
-//Calibration value for checking where a vehicle is (essentially accounts for small inaccuracies)
-float cal_range = 0.0; //------------------------UPDATE ME!
-
 // Booleans for task control
 boolean done = false;
 boolean z1 = false;
 boolean z3 = false;
-boolean jog = false;
+boolean jogDT = false;
+boolean jogQ = false;
 
 // Some booleans for one shotting
 boolean intower = true;
@@ -79,7 +60,6 @@ boolean drivetires = true;
 // Driver Objects
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(SERVO);    
 Adafruit_VL53L0X lox = Adafruit_VL53L0X();
-BasicStepperDriver stepper(MOTOR_STEPS, DIR, STEP, SLEEP);
 
 void setup() {
   // put your setup code here, to run once:
@@ -115,28 +95,6 @@ void setup() {
   lox.begin(TOF2);   // Initialize for communication with 2nd TOF (the one on the bridge)
 
   delay(10);
-
-  // Stepper initialization
-  stepper.begin(RPM, MICROSTEPS);
-  stepper.enable();
-
-  // Below we locate and calibrate the stepper motor
-
-  while(!digitalRead(TOPLIMIT1) && !digitalRead(TOPLIMIT2)) {
-    stepper.rotate(1);
-    delay(10)
-    }
-
-  while (!digitalRead(BOTTOMLIMIT)) {
-    stepper.rotate(1);
-    steps++;
-    delay(10);
-  }
-
-  while (!digitalRead(BOTTOMIR1) && !digitalRead(BOTTOMIR2)) {
-    stepper.rotate(1);
-    delay(10);
-  }
 }
 
 void loop() {
@@ -173,21 +131,11 @@ void loop() {
     // Lock tower and drop
     pwm.setPWM(DROPLOCKSERVO, 4096, 0);
 
-    // Drop Tower to bottom ---> We should probably measure the number of steps and do it that way instead
-    while (!digitalRead(BOTTOMLIMIT)) {
-      stepper.rotate(1);
-      steps++;
-      delay(10);
   }
-
-    // Raise Tower to top --> we know this number of steps based on the calibration
-    stepper.move(-steps*MICROSTEPS);
 
     // Actuate the rotating mechanism
     pwm.setPWM(ACTUATESERVO, 4096,0);
 
-    // Drop to Bottom
-    stepper.move(steps*MICROSTEPS);
 
   if(digitalRead(DROPBOTTOMIR1) && digitalRead(DROPBOTTOMIR2)) {
     // Release the lock
@@ -195,13 +143,6 @@ void loop() {
 
     // Unactuate
     pwm.setPWM(ACTUATESERVO, 0, 4096);
-
-    // Raise back to top window
-    while (!digitalRead(DROPTOPIR1) && !digitalRead(DROPTOPIR2)) {
-      stepper.rotate(1);
-      steps++;
-      delay(10);
-  }
 
   // INSERT CODE TO DRIVE PREQUEUE TIRES BASED ON IF QUEUE IS OCCUPIED
     
@@ -222,9 +163,9 @@ void loop() {
 void receiveEvent(int howMany) {
  int d = Wire.read();
   switch(d){
-    case SET_STOP_F : jog = false;
+    case SET_STOP_F : jogDT = jogQ = false;
                       break;
-    case SET_STOP_T : jog = true;
+    case SET_STOP_T : jogDT = jogQ = true;
                       break;
     case SET_Z1_F   : z1 = false;
                       break;
@@ -233,6 +174,14 @@ void receiveEvent(int howMany) {
     case SET_Z3_F   : z3 = false;
                       break;
     case SET_Z3_T   : z3 = true;
+                      break;
+    case JOG_Q_F    : jogQ = false;
+                      break;
+    case JOG_Q_T    : jogQ = true;
+                      break;
+    case JOG_DT_F   : jogDT = false;
+                      break;
+    case JOG_DT_T   : jogDT = true;
                       break;
     default         : Serial.print("Error! Invalid data received at Z2");
   }
