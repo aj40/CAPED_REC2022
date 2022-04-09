@@ -4,7 +4,6 @@
 #include <Wire.h>
 #include "REC.h"
 #include <Adafruit_PWMServoDriver.h>
-#include <AccelStepper.h>
 #include <Adafruit_VL53L0X.h>
 
 //Definitions
@@ -37,18 +36,11 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 //Create TOF
 Adafruit_VL53L0X tof = Adafruit_VL53L0X();
 
-//Create Stepper
-AccelStepper stepper = AccelStepper(1, STEP, DIR);
-
-
 void setup() {
   // put your setup code here, to run once:
   pinMode(IR_PREQ, INPUT);
   pinMode(IR_Q, INPUT);
   pinMode(IR_B1, INPUT);
-  
-  stepper.setMaxSpeed(1000);
-  stepper.setAcceleration(30);
 
   Wire.begin(Z1);
   Wire.onReceive(receiveEvent);
@@ -68,16 +60,6 @@ void setup() {
 void loop() {
   VL53L0X_RangingMeasurementData_t measure;
   tof.rangingTest(&measure, false);
-
-  //VALUES
-  Serial.print("IR_PREQ: ");
-  Serial.println(digitalRead(IR_PREQ));
-  Serial.print("IR_Q: ");
-  Serial.println(digitalRead(IR_Q));
-  Serial.print("IR_B1: ");
-  Serial.println(digitalRead(IR_B1));
-  Serial.print("IR_B2: ");
-  Serial.println(digitalRead(IR_B2));
 
   // put your main code here, to run repeatedly:
   if(!jogQ && z3 && digitalRead(IR_PREQ)){
@@ -102,18 +84,12 @@ void loop() {
     pwm.setPWM(CABIN_D, 0, 300);
 
     pwm.setPWM(CABIN_L, 0, SERVOMAX);
-    stepper.moveTo(top); //change to value at top
-    stepper.runToPosition();
   }
 
-  if(!jogLT && stepper.position() = top){
+  if(!jogLT && IR_T1 && IR_T2){
      pwm.setPWM(CABIN_L, 0, SERVOMIN);
      delay(100);
      pwm.setPWM(CABIN_D, 1, 400);
-     if(!digitalRead(IR_BR)){
-      stepper.moveTo(bottom);
-      stepper.runToPosition();
-     }
      
   }
 
